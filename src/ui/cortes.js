@@ -143,9 +143,11 @@
         if (ass) legendas[preset] = ass;
         return A.IdentidadeUI.visualPara(corte, PRESETS[preset]).then(function (vis) {
           var por = function (x) { var o = {}; if (x) o[preset] = x; return o; };
+          var anots = PRESETS[preset].tipo !== 'c' && A.Edicao ? A.Edicao.pngsAnotacoes(corte, s) : [];
           return window.api.exportar({
             sessaoId: s.id, corteId: corte.id, presets: [preset], retratos: r.retratos, layout: r.layout, retratosHorizontal: !!r.retratosHorizontal,
             legendas: legendas, camadas: por(vis.camadas.length ? vis.camadas : null), final: por(vis.final), fundo: por(vis.fundo),
+            anotacoes: por(anots.length ? anots : null),
           });
         });
       }).then(function (r) {
@@ -393,7 +395,12 @@
       var prep = s0 && !s0.carregando ? retratosPara(s0, preset, { retratosHorizontal: false }) : Promise.resolve({ retratos: [], layout: { layout: 'nenhum' } });
       return prep.then(function (r) {
         return A.IdentidadeUI.visualPara(null, PRESETS[preset]).then(function (vis) {
-          return window.api.compilado({ itens: selecionados.map(function (x) { return { sessaoId: x.sessaoId, corteId: x.corteId }; }), preset: preset, nome: nome, retratos: r.retratos, layout: r.layout,
+          // anotações de cada corte (PNGs no tamanho da gravação daquela sessão)
+          var itens = selecionados.map(function (x) {
+            var ses = abertas[x.sessaoId], c = ses && ses.cortes ? ses.cortes.filter(function (k) { return k.id === x.corteId; })[0] : null;
+            return { sessaoId: x.sessaoId, corteId: x.corteId, anotacoes: c && A.Edicao ? A.Edicao.pngsAnotacoes(c, ses) : [] };
+          });
+          return window.api.compilado({ itens: itens, preset: preset, nome: nome, retratos: r.retratos, layout: r.layout,
             camadas: vis.camadas, final: vis.final, fundo: vis.fundo });
         });
       }).then(function (r) { A.resultado(r, true); });
@@ -542,6 +549,7 @@
   function sairEditor() {
     if (A.EditorLegendas) A.EditorLegendas.sair();
     if (A.IdentidadeUI) A.IdentidadeUI.sair();
+    if (A.Edicao) A.Edicao.sair();
     if (ed && ed.player) ed.player.parar();
     if (ed && ed.salvarTimer) { clearTimeout(ed.salvarTimer); window.api.salvarCorte(ed.s.id, ed.corte); }
     if (ed && ed.raf) cancelAnimationFrame(ed.raf);
@@ -565,10 +573,11 @@
       '<p>' + esc(dataHora(s.inicio)) + (s.mesa ? ' · ' + esc(s.mesa.nome) : '') + (c.fonte !== 'gravacao' ? ' · do replay' : '') + '</p></div>' +
       '<a class="botao principal" href="#vertical/' + encodeURIComponent(s.id) + '/' + encodeURIComponent(c.id) + '">Editar vertical →</a></header>' +
       '<div class="grade" style="grid-template-columns:minmax(0,1.6fr) minmax(300px,1fr)">' +
-      '<section class="painel"><div class="video-caixa"><video id="video" preload="auto" playsinline></video><canvas id="leg-h" class="leg-camada" aria-label="Legenda: arraste para mover, puxe a bolinha para o tamanho e as laterais para a largura"></canvas><div class="sem-video" id="sem-video" hidden>Vídeo deste trecho não encontrado.</div></div>' +
+      '<section class="painel"><div class="video-caixa"><video id="video" preload="auto" playsinline></video><canvas id="resultado-h" class="leg-camada" aria-hidden="true"></canvas><canvas id="leg-h" class="leg-camada" aria-label="Legenda: arraste para mover, puxe a bolinha para o tamanho e as laterais para a largura"></canvas><canvas id="edicao-h" class="edicao-camada" hidden aria-label="Edição: arraste a caixa da câmera, desenhe e mova as anotações"></canvas><div class="sem-video" id="sem-video" hidden>Vídeo deste trecho não encontrado.</div></div>' +
       '<div class="linha controles-video">' +
       '<button class="icone" data-acao="tocar" aria-label="Tocar ou pausar (espaço)" title="Tocar/pausar (espaço)" id="botao-tocar">▶</button>' +
       '<button class="pequeno" data-acao="ouvirCorte" title="Toca só o trecho do corte">Ver o corte</button>' +
+      '<button class="pequeno" data-acao="edEditar" aria-pressed="false" title="Zoom em partes da tela e anotações (setas, destaques, textos)">✏️ Câmera e anotações</button>' +
       '<span class="mono" id="tempo-atual">0:00.0</span>' +
       '<span class="ajuda" style="margin-left:auto"><kbd>I</kbd> início · <kbd>O</kbd> fim · <kbd>←</kbd><kbd>→</kbd> 0,1 s (com <kbd>Shift</kbd> 1 s)</span></div>' +
       '<div id="linha-tempo" class="linha-tempo" aria-label="Linha do tempo do corte"></div>' +
@@ -591,6 +600,7 @@
       }).join('') + '</div>' +
       '<label class="opcao"><input type="checkbox" id="retratos-h"' + A.marcado(c.retratosHorizontal) + '><span>Desenhar retratos nos vídeos horizontais<small>Use se gravou com o overlay desligado</small></span></label>' +
       '<button class="principal" data-acao="exportarCorte">Exportar</button></section>' +
+      A.Edicao.painel('h') +
       A.EditorLegendas.painel('h') +
       A.IdentidadeUI.painel() +
       '<section class="painel" id="vivo-fila"></section>' +
@@ -615,6 +625,7 @@
     atualizarFila();
     A.EditorLegendas.montar('h');
     A.IdentidadeUI.montar();
+    A.Edicao.montar('h');
     ed.player.ir(c.ini / 1000, false);
   }
 
@@ -673,6 +684,7 @@
     if (A.TELAS.vertical.desenharCaixa) A.TELAS.vertical.desenharCaixa();
     if (A.EditorLegendas) A.EditorLegendas.tique();
     if (A.IdentidadeUI) A.IdentidadeUI.tique();
+    if (A.Edicao) A.Edicao.tique();
   }
 
   function atualizarCampos() {
@@ -908,6 +920,7 @@
       '<div id="fundo-inteira" class="fundo-inteira"' + (c.vertical.modo === 'inteira' ? '' : ' hidden') + '>' + fundoInteiraHtml(m.vertical.fundo) + '</div>' +
       '<div class="quadro-fonte" id="quadro-fonte" style="aspect-ratio:' + d0.W + '/' + d0.H + '">' +
       '<video id="video" preload="auto" playsinline></video>' +
+      '<canvas id="edicao-v" class="edicao-camada-v" aria-label="Anotações: com uma ferramenta escolhida, arraste para desenhar"></canvas>' +
       '<div class="caixa-camera" id="caixa-camera" tabindex="0" aria-label="Câmera: arraste para mover, use a alça para o zoom"><span class="alca-zoom" data-zoom aria-hidden="true"></span></div>' +
       '</div>' +
       '<div class="linha controles-video"><button class="icone" data-acao="tocar" aria-label="Tocar ou pausar (espaço)" id="botao-tocar">▶</button>' +
@@ -924,6 +937,7 @@
       '<canvas id="previa-vertical" width="' + PRE_W + '" height="' + PRE_H + '" class="previa-vertical" aria-label="Prévia do vídeo vertical: arraste os retratos para mover, puxe a alça para mudar o tamanho"></canvas>' +
       '<p class="ajuda" style="align-self:stretch;text-align:center">Arraste os retratos e a legenda para mover · puxe as bolinhas amarelas para aumentar ou diminuir</p></section>' +
       painelRetratosVertical(m.vertical) +
+      A.Edicao.painel('v') +
       A.EditorLegendas.painel('v') +
       A.IdentidadeUI.painel() +
       '<section class="painel" id="vivo-fila"></section>' +
@@ -952,6 +966,7 @@
     atualizarFila();
     A.EditorLegendas.montar('v');
     A.IdentidadeUI.montar();
+    A.Edicao.montar('v');
     ed.player.ir(c.ini / 1000, false);
     var loop = function () {
       if (!ed || !$('#previa-vertical')) return;
@@ -1375,9 +1390,11 @@
         var qv = ed.arrastoVideo || Ident.quadroVideoInteira(fu, PRE_W, PRE_H, v.videoWidth, v.videoHeight);
         ctx.drawImage(v, qv.x, qv.y, qv.largura, qv.altura);
         ed.quadroVideo = qv;
+        A.Edicao.desenharNaPrevia(ctx, { x: 0, y: 0, w: 1, h: 1 }, { x: qv.x, y: qv.y, w: qv.largura, h: qv.altura });
       } else {
         var b = ed.arrastando || caixaAgora();
         ctx.drawImage(v, b.x * v.videoWidth, b.y * v.videoHeight, b.w * v.videoWidth, b.h * v.videoHeight, 0, 0, PRE_W, PRE_H);
+        A.Edicao.desenharNaPrevia(ctx, b, { x: 0, y: 0, w: PRE_W, h: PRE_H });
       }
     }
     A.IdentidadeUI.desenharEditor(ctx, PRE_W, PRE_H, 'v', 'previa-vertical');

@@ -1,7 +1,7 @@
 {
   "name": "gravador-rpg",
   "productName": "Gravador RPG",
-  "version": "0.5.1",
+  "version": "0.6.0",
   "description": "Companheiro do OBS para gravar sessões de RPG: marcadores, retratos de quem fala (StreamKit do Discord), limpeza automática, cortes para YouTube, WhatsApp e vertical, e bot de música no Discord.",
   "main": "src/main/main.js",
   "author": "Gustavo Yamavaki",

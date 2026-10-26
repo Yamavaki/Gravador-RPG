@@ -1,4 +1,4 @@
-# Gravador RPG 0.5.1
+# Gravador RPG 0.6.0
 
 Companheiro do OBS para gravar sessões de RPG no Windows:
 
@@ -14,6 +14,7 @@ Companheiro do OBS para gravar sessões de RPG no Windows:
 - **Módulo do Foundry** (opcional) que marca sozinho combates, críticos e trocas de cena.
 - **Novo na 0.3 — Canais salvos**: vários canais de voz por mesa, trocados com um clique (até no meio da gravação).
 - **Novo na 0.3 — Bot de música** no Discord, no estilo do Kenku FM: toca as músicas do seu PC (com as seções e loops de chefe do Trilha Viva, camadas de ambiente e efeitos, fila e crossfade) e um **navegador com abas** dentro do app (YouTube com a sua conta e outros sites), várias tocando ao mesmo tempo.
+- **Novo na 0.6 — Tutoriais**: zoom em partes da tela nos cortes horizontais (e voltar para a tela inteira), e anotações (setas, destaques, textos, marca-texto...) com fade ou corte seco, no horizontal e no vertical.
 - **Novo na 0.5.1 — Atualização automática**: quando sai versão nova, aparece **Atualizar para X** no menu; um clique e o app se atualiza e abre de novo sozinho.
 - **Novo na 0.5 — Identidade visual**: logo e textos (o @ do Discord, o canal) por cima do vídeo, ao vivo no OBS e/ou só nos cortes, posicionados com o mouse; **imagem final** com fade no fim dos cortes (uma padrão para horizontais e outra para verticais); **fundo próprio** no vertical "tela inteira"; e **música rápida** nos cortes com volume, fades e pontos de volume no tempo.
 - **Novo na 0.4 — Legendas** nos cortes: o app transcreve a fala aqui no seu PC, marca quem falou, e você corrige o texto, escolhe a aparência e posiciona com o mouse.
@@ -188,6 +189,21 @@ No painel **Legendas** (no editor de corte e no vertical):
 3. **Posição**: na prévia (por cima do vídeo no horizontal; na prévia do vertical), **arraste a legenda** para mover — ela gruda no centro quando passa por ele —, puxe a **bolinha do canto** para aumentar ou diminuir a letra e as **barrinhas das laterais** para a largura (onde a frase quebra de linha). O horizontal e o vertical guardam posições separadas.
 4. **Aparência** (vale para todos os cortes da mesa): fonte, tamanho, negrito, MAIÚSCULAS, cor do texto ou a cor de cada personagem, palavra falada destacada, contorno e sombra **ou** caixa atrás do texto (cor e opacidade), quantas palavras aparecem por vez (estilo TikTok) ou a frase inteira, e o nome de quem fala antes da fala.
 5. **Mostrar neste corte** liga e desliga sem perder o texto. A exportação queima a legenda no vídeo do jeito que aparece na prévia (o *Corte rápido* não leva legenda, porque copia o vídeo original).
+
+### Câmera e anotações (tutoriais)
+
+No editor de corte, clique em **✏️ Câmera e anotações** (embaixo do vídeo). A prévia passa a mostrar a gravação inteira para você editar; clique de novo (**✓ Ver o resultado**) para ver como vai sair.
+
+**Zoom (cortes horizontais)** — no painel **Câmera e anotações**:
+- **+ Zoom aqui** cria um ponto no tempo atual com zoom; arraste a caixa amarela para escolher a parte da tela, puxe a bolinha ou use a **rodinha** do mouse (o zoom vai para onde está o mouse).
+- Ande no vídeo e clique em **⤢ Tela inteira aqui** para voltar para a câmera original.
+- Em cada ponto, escolha como a câmera vai até o próximo: **Desliza e para** (fica parada e anda só no fim, em 0,25 s a 2 s), **Desliza o tempo todo** ou **Corte seco**. Clique nos losangos para ir até um ponto; **Apagar ponto** tira.
+- No vertical, a câmera continua sendo a do quadro da gravação (como antes).
+
+**Anotações (horizontal e vertical)**:
+- Escolha a ferramenta — **Seta, Linha, Retângulo, Círculo, Marca-texto, Destaque** (escurece tudo menos a área) ou **Texto** — e arraste no vídeo (no vertical, no quadro da gravação à esquerda). Ela começa no ponto atual e dura 3 s.
+- Clique numa anotação para escolher: arraste para mover, puxe as bolinhas das pontas para mudar. Na lista: **Aparece em / Some em** (com o botão **Aqui** que usa o ponto atual do vídeo), **Com fade** ou **Corte seco**, a duração do fade, a cor, a espessura, o texto. **Delete** apaga a escolhida, **Esc** solta.
+- As anotações ficam presas à gravação: se você der zoom, elas acompanham; e as mesmas aparecem no corte vertical.
 
 ### Identidade visual (logo, textos e imagem final)
 

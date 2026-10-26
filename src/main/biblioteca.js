@@ -11,6 +11,7 @@ const { novoIdCorte } = require('../core/exportador');
 const Momentos = require('../core/momentos');
 const { atribuirFalantes } = require('../core/transcricao');
 const Identidade = require('../core/identidade');
+const Anotacoes = require('../core/anotacoes');
 
 const ID_SESSAO = /^[\w-]{1,80}$/;
 const MAX_CORTES = 300;
@@ -173,14 +174,23 @@ class Biblioteca {
     }
     const v = c.vertical && typeof c.vertical === 'object' ? c.vertical : {};
     const num = (x, a, b, p) => (Number.isFinite(Number(x)) ? Math.max(a, Math.min(b, Number(x))) : p);
+    const pontoCamera = p => {
+      const w = num(p.w, 0.01, 1, 0.3);
+      const o = { t: Math.max(0, Math.round(Number(p.t))), x: num(p.x, 0, 1 - w, 0), y: num(p.y, 0, 1, 0), w, trans: ['suave', 'rapido', 'corte'].includes(p.trans) ? p.trans : 'suave' };
+      if (p.dur != null && Number.isFinite(Number(p.dur))) o.dur = Math.round(num(p.dur, 100, 10000, 600));
+      return o;
+    };
     // a câmera só é validada aqui (frações de 0 a 1); quem ajusta à proporção do vídeo é a
     // tela (que conhece o vídeo) e a exportação (que lê o vídeo de verdade)
     const camera = (Array.isArray(v.camera) ? v.camera : []).slice(0, 200)
       .filter(p => p && Number.isFinite(Number(p.t)) && Number(p.t) <= fim - ini + 1000)
-      .map(p => {
-        const w = num(p.w, 0.01, 1, 0.3);
-        return { t: Math.max(0, Math.round(Number(p.t))), x: num(p.x, 0, 1 - w, 0), y: num(p.y, 0, 1, 0), w, trans: ['suave', 'rapido', 'corte'].includes(p.trans) ? p.trans : 'suave' };
-      })
+      .map(pontoCamera)
+      .sort((a, b) => a.t - b.t);
+    // câmera do horizontal (zoom em partes da tela, para tutoriais)
+    const hz = c.horizontal && typeof c.horizontal === 'object' ? c.horizontal : {};
+    const cameraH = (Array.isArray(hz.camera) ? hz.camera : []).slice(0, 200)
+      .filter(p => p && Number.isFinite(Number(p.t)) && Number(p.t) <= fim - ini + 1000)
+      .map(pontoCamera)
       .sort((a, b) => a.t - b.t);
     return {
       id: existente.id || (typeof c.id === 'string' && /^[a-f0-9]{6,20}$/.test(c.id) ? c.id : novoIdCorte()),
@@ -191,6 +201,8 @@ class Biblioteca {
         modo: v.modo === 'inteira' ? 'inteira' : 'camera',
         camera,
       },
+      horizontal: { camera: cameraH },
+      anotacoes: Anotacoes.normalizarLista(c.anotacoes),
       retratosHorizontal: !!c.retratosHorizontal,
       legendas: normalizarLegendasCorte(c.legendas),
       // identidade visual: camadas da mesa escondidas neste corte; imagem final sim/não; música rápida
@@ -429,6 +441,7 @@ class Biblioteca {
         fundo: (pedido.fundo && pedido.fundo[preset]) || null,
         final: corte.final !== false && pedido.final ? pedido.final[preset] || null : null,
         musica: this._musica(corte),
+        anotacoes: (pedido.anotacoes && pedido.anotacoes[preset]) || [],
         pastaSaida: this.pastaSaida(),
         nomeBase: this._nomeBase(s, corte),
       });
@@ -456,6 +469,7 @@ class Biblioteca {
         sessaoArquivo: path.join(this._dir(it.sessaoId), 'linha-do-tempo.jsonl'),
         corte, retratos: retratos || [], layout: layout || { layout: 'nenhum' }, retratosHorizontal: !!retratosHorizontal,
         camadas: camadas || [], fundo: fundo || null,
+        anotacoes: Array.isArray(it.anotacoes) ? it.anotacoes : [],
       });
     }
     // a imagem final entra só uma vez, no fim do compilado

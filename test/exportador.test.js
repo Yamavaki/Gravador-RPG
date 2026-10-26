@@ -340,3 +340,40 @@ test('identidade: vertical tela inteira com fundo próprio, vídeo menor e mais 
   assert.ok(!(video[0] > 180 && video[2] > 180 && video[1] < 80), `vídeo no lugar (30% da altura) ${video}`);
   assert.ok(lado[0] > 180 && lado[2] > 180, `vídeo com metade da largura deixa o fundo nos lados ${lado}`);
 });
+
+// ---------------------------------------------------------------- 0.6: câmera no horizontal e anotações
+test('tutorial: zoom da câmera no horizontal, volta para a tela toda e anotação com fade', async t => {
+  if (!sessao) return t.skip('sem FFmpeg');
+  // vídeo vermelho com um quadrado verde no canto de cima à esquerda
+  const v = path.join(tmp, 'tutorial.mp4');
+  execFileSync(ff.bin, ['-loglevel', 'error', '-y', '-f', 'lavfi', '-i', 'color=c=red:s=1280x720:r=30,drawbox=x=0:y=0:w=640:h=360:color=green:t=fill',
+    '-f', 'lavfi', '-i', 'sine=f=440:sample_rate=48000', '-t', '6', '-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p', '-c:a', 'aac', v]);
+  const t0 = 1_700_000_100_000;
+  const s = new Sessao(path.join(tmp, 'sessoes-tut'), { inicio: t0, mesa: { id: 'm', nome: 'Nauren' } });
+  s.arquivoGravacao(v, t0);
+  s.encerrar(t0 + 6000);
+  const fila = new Fila();
+  const prep = await exp.preparar({
+    sessaoArquivo: s.arquivo,
+    corte: {
+      nome: 'Tutorial', ini: 0, fim: 5000, fonte: 'gravacao', audio: { modo: 'faixa1' },
+      // 0 s: tela toda; 1 s: zoom no quadrado verde (corte seco); 3 s: volta para a tela toda (corte seco)
+      horizontal: { camera: [{ t: 0, x: 0, y: 0, w: 1, trans: 'corte' }, { t: 1000, x: 0, y: 0, w: 0.5, trans: 'corte' }, { t: 3000, x: 0, y: 0, w: 1, trans: 'corte' }] },
+    },
+    preset: 'youtube-1080', pastaSaida: path.join(tmp, 'saida'), nomeBase: 'tutorial',
+    // retângulo azul (no vídeo original: 1000,500 a 1100,600) de 3,5 s a 4,5 s
+    anotacoes: [{ png: pngDataUrl('#0000FF', 100, 100), x: 1000, y: 500, ini: 3500, fim: 4500, entrada: 'corte' }],
+  });
+  const fim = terminar(fila);
+  fila.adicionar(prep);
+  const tarefa = await fim;
+  assert.equal(tarefa.erro, '', tarefa.erro);
+  const pixel = (s2, x, y) => [...execFileSync(ff.bin, ['-loglevel', 'error', '-ss', String(s2), '-i', tarefa.saida, '-frames:v', '1', '-vf', `crop=2:2:${x}:${y},format=rgb24`, '-f', 'rawvideo', '-'])];
+  const verde = p => p[1] > 100 && p[0] < 60, vermelho = p => p[0] > 150 && p[1] < 100, azul = p => p[2] > 150 && p[0] < 100;
+  assert.ok(vermelho(pixel(0.5, 1500, 800)), 'tela toda no começo: canto de baixo vermelho');
+  assert.ok(verde(pixel(2, 1500, 800)), `zoom no quadrado verde ${pixel(2, 1500, 800)}`);
+  assert.ok(vermelho(pixel(3.2, 1500, 800)), 'voltou para a tela toda');
+  // anotação acompanha a escala: (1050,550) do original → (1575,825) na saída 1920×1080
+  assert.ok(azul(pixel(4, 1574, 824)), `anotação no lugar ${pixel(4, 1574, 824)}`);
+  assert.ok(!azul(pixel(3.2, 1574, 824)), 'anotação só aparece no tempo dela');
+});

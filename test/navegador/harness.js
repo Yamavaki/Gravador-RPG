@@ -167,7 +167,7 @@ const TIPOS = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; ch
     }
     if (u.pathname.startsWith('/core/')) {
       const rel = u.pathname.slice(6);
-      if (!['camera.js', 'layout-retratos.js', 'pausas.js', 'legendas.js', 'identidade.js', 'musica/trilha-util.js', 'musica/analise.js'].includes(rel)) { res.writeHead(404); return res.end(); }
+      if (!['camera.js', 'layout-retratos.js', 'pausas.js', 'legendas.js', 'identidade.js', 'anotacoes.js', 'musica/trilha-util.js', 'musica/analise.js'].includes(rel)) { res.writeHead(404); return res.end(); }
       res.writeHead(200, { 'Content-Type': 'text/javascript; charset=utf-8' });
       return res.end(fs.readFileSync(path.join(CORE, rel)));
     }

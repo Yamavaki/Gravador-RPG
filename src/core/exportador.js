@@ -143,7 +143,18 @@ class Exportador {
         retratos.push({ ...r, intervalos, indice: i++, quieto: soQuemFala ? null : r.quieto });
       }
     }
-    const vertical = corte.vertical ? { ...corte.vertical, camera: ajustarCamera(corte, iniReal, R, fonte) } : corte.vertical;
+    const vertical = corte.vertical ? { ...corte.vertical, camera: ajustarCamera((corte.vertical || {}).camera, corte, iniReal, R, fonte) } : corte.vertical;
+    // câmera do horizontal (zoom para tutoriais): só se algum ponto sair da tela inteira
+    let cameraH = null;
+    if (preset.tipo === 'horizontal' && corte.horizontal && Array.isArray(corte.horizontal.camera) && corte.horizontal.camera.length) {
+      const asp = preset.largura / preset.altura, Wf = fonte.largura || 1920, Hf = fonte.altura || 1080;
+      const cheia = Camera.inteira(Wf, Hf, asp);
+      const usa = corte.horizontal.camera.some(p => Math.abs(p.w - cheia.w) > 0.002 || Math.abs(p.x - cheia.x) > 0.002 || Math.abs(p.y - cheia.y) > 0.002);
+      if (usa) cameraH = ajustarCamera(corte.horizontal.camera, corte, iniReal, R, fonte, asp);
+    }
+    // anotações: tempos do corte → relógio do vídeo exportado (s)
+    const anotacoesPed = preset.tipo === 'copia' ? [] : (pedido.anotacoes || []).slice(0, 80).filter(a => a && a.png && Number.isFinite(Number(a.x)) && Number.isFinite(Number(a.y)))
+      .map(a => ({ ...a, a: (R(corte.ini + Number(a.ini)) - iniReal) / 1000, b: (R(corte.ini + Number(a.fim)) - iniReal) / 1000, fade: a.entrada === 'corte' ? 0 : Math.max(0, Number(a.fade) || 0) / 1000 }));
     // legendas: a interface gerou o .ass contando do início do corte; o vídeo pode começar um pouco depois
     let ass = null;
     if (pedido.legendasAss && preset.tipo !== 'copia') {
@@ -176,6 +187,7 @@ class Exportador {
         const camadasArq = camadas.map((c, i) => ({ x: Number(c.x), y: Number(c.y), arquivo: this._gravarPng(tmp, `camada${i}.png`, c.png) }));
         const fundoArq = fundo ? { y: fundo.y, escala: fundo.escala, arquivo: fundo.png ? this._gravarPng(tmp, 'fundo.png', fundo.png) : null } : null;
         const finalArq = final ? { duracao: final.duracao, fade: final.fade, arquivo: this._gravarPng(tmp, 'final.png', final.png) } : null;
+        const anotArq = anotacoesPed.map((a, i) => ({ x: Number(a.x), y: Number(a.y), a: a.a, b: a.b, fade: a.fade, arquivo: this._gravarPng(tmp, `anotacao${i}.png`, a.png) }));
         if (ass) fs.writeFileSync(path.join(tmp, 'legendas.ass'), ass, 'utf8');
         const cmd = C.montarComando({
           preset, pedacos, fonte, audio: corte.audio, vertical,
@@ -185,7 +197,7 @@ class Exportador {
           fpsFixo: pedido.fpsFixo || null, sempreAudio: true,
           saida, arquivoFiltros: path.join(tmp, 'filtros.txt'), arquivoLista: path.join(tmp, 'lista.txt'),
           legendas: ass ? 'legendas.ass' : null,
-          camadas: camadasArq, fundo: fundoArq, final: finalArq, musica,
+          camadas: camadasArq, fundo: fundoArq, final: finalArq, musica, cameraH, anotacoes: anotArq,
           pastaFontes: process.platform === 'win32' ? path.join(process.env.WINDIR || 'C:\\Windows', 'Fonts') : null,
         });
         if (cmd.filtros) fs.writeFileSync(path.join(tmp, 'filtros.txt'), cmd.filtros);
@@ -314,17 +326,17 @@ function apagarSeVazio(c) {
  * Pontos da câmera no relógio do vídeo exportado: os pontos são guardados em tempo da sessão
  * desde o início do corte; o vídeo pode começar depois (replay curto) e pular pausas.
  */
-function ajustarCamera(corte, iniRealMs, R, fonte) {
-  const pts = (corte.vertical && corte.vertical.camera) || [];
+function ajustarCamera(pts, corte, iniRealMs, R, fonte, asp) {
+  pts = pts || [];
   if (!pts.length) return pts;
   const W = fonte.largura || 1920, H = fonte.altura || 1080;
   const conv = pts.map(p => ({ ...p, t: R(corte.ini + p.t) - iniRealMs }));
   if (conv[0].t >= 0) return conv;
   // a câmera no instante 0 do vídeo: a mesma que estaria na tela naquele momento
   const desloc = -conv[0].t;
-  const b0 = Camera.caixaEm(conv.map(p => ({ ...p, t: p.t + desloc })), desloc, W, H);
+  const b0 = Camera.caixaEm(conv.map(p => ({ ...p, t: p.t + desloc })), desloc, W, H, asp);
   const antes = conv.filter(p => p.t < 0).pop();
-  return [{ t: 0, x: b0.x, y: b0.y, w: b0.w, trans: antes.trans }].concat(conv.filter(p => p.t > 0));
+  return [{ t: 0, x: b0.x, y: b0.y, w: b0.w, trans: antes.trans, dur: antes.dur }].concat(conv.filter(p => p.t > 0));
 }
 
 /** Id curto e aleatório para cortes. */

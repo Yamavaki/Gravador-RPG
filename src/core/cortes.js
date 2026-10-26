@@ -99,6 +99,8 @@ function bitrateParaTamanho(alvoMB, duracaoS, audioKbps) {
  *  bitrateKbps (opcional, força bitrate: usado no compilado)
  * @returns {{ args: string[], filtros: string|null, duracao: number, avisos: string[] }}
  */
+function b2n(v) { const x = Number(v); return Number.isFinite(x) ? x : 0; }
+
 function montarComando(o) {
   const p = o.preset;
   const duracao = o.pedacos.reduce((s, x) => s + x.dur, 0);
@@ -148,6 +150,12 @@ function montarComando(o) {
   const fundo = inteira && o.fundo ? o.fundo : null;
   let entFundo = -1;
   if (fundo && fundo.arquivo) { entFundo = proxEntrada++; args.push('-loop', '1', '-framerate', String(fps), '-t', n3(duracao), '-i', fundo.arquivo); }
+  // anotações (tutoriais): PNGs no tamanho do vídeo ORIGINAL, desenhados antes da câmera
+  const anotacoes = (o.anotacoes || []).filter(a => a && a.arquivo && b2n(a.b) > b2n(a.a)).map(a => {
+    const e = { ...a, entrada: proxEntrada++ };
+    args.push('-loop', '1', '-framerate', String(fps), '-t', n3(duracao), '-i', a.arquivo);
+    return e;
+  });
   let entFinal = -1;
   if (fin) { entFinal = proxEntrada++; args.push('-loop', '1', '-framerate', String(fps), '-t', n3(total), '-i', fin.arquivo); }
   let entMusica = -1;
@@ -167,6 +175,17 @@ function montarComando(o) {
   const vEntrada = n > 1 ? '[vc]' : '[0:v:0]';
   const aEntrada = k => (n > 1 ? `[ac${k}]` : `[0:a:${k}]`);
 
+  // anotações por cima do vídeo original (acompanham o zoom da câmera)
+  let vFonte = vEntrada;
+  anotacoes.forEach((a, i) => {
+    const ini = Math.max(0, b2n(a.a)), fim = Math.min(duracao, b2n(a.b));
+    if (fim <= ini) return;
+    const fd = Math.min(b2n(a.fade), (fim - ini) / 2);
+    const fades = fd > 0.01 ? `,fade=t=in:st=${n3(ini)}:d=${n3(fd)}:alpha=1,fade=t=out:st=${n3(fim - fd)}:d=${n3(fd)}:alpha=1` : '';
+    f.push(`[${a.entrada}:v]format=rgba${fades}[an${i}]`);
+    f.push(`${vFonte}[an${i}]overlay=x=${Math.round(a.x)}:y=${Math.round(a.y)}:enable='between(t,${n3(ini)},${n3(fim)})':format=auto[va${i}]`);
+    vFonte = `[va${i}]`;
+  });
   // vídeo
   const W = p.largura, H = p.altura;
   if (inteira) {
@@ -174,10 +193,10 @@ function montarComando(o) {
     const larg = Math.max(2, Math.round((W * (Number(fu.escala) || 1)) / 2) * 2);
     const yc = Math.round((Number.isFinite(Number(fu.y)) ? Number(fu.y) : 0.5) * H);
     if (entFundo >= 0) {
-      f.push(`${vEntrada}fps=${fps},scale=${larg}:-2[frente]`);
+      f.push(`${vFonte}fps=${fps},scale=${larg}:-2[frente]`);
       f.push(`[${entFundo}:v]scale=${W}:${H},setsar=1[fundo]`);
     } else {
-      f.push(`${vEntrada}fps=${fps},split[vf1][vf2]`);
+      f.push(`${vFonte}fps=${fps},split[vf1][vf2]`);
       f.push(`[vf1]scale=-2:${H},crop=${W}:${H},boxblur=20:2,eq=brightness=-0.08[fundo]`);
       f.push(`[vf2]scale=${larg}:-2[frente]`);
     }
@@ -185,9 +204,14 @@ function montarComando(o) {
   } else if (p.tipo === 'vertical') {
     const e = Camera.expressoesPerspective((o.vertical || {}).camera, o.fonte.largura, o.fonte.altura, fps);
     const q = s => `'${s}'`;
-    f.push(`${vEntrada}fps=${fps},perspective=x0=${q(e.x0)}:y0=${q(e.y0)}:x1=${q(e.x1)}:y1=${q(e.y1)}:x2=${q(e.x2)}:y2=${q(e.y2)}:x3=${q(e.x3)}:y3=${q(e.y3)}:sense=source:eval=frame:interpolation=linear,scale=${W}:${H}:flags=bicubic,setsar=1[v0]`);
+    f.push(`${vFonte}fps=${fps},perspective=x0=${q(e.x0)}:y0=${q(e.y0)}:x1=${q(e.x1)}:y1=${q(e.y1)}:x2=${q(e.x2)}:y2=${q(e.y2)}:x3=${q(e.x3)}:y3=${q(e.y3)}:sense=source:eval=frame:interpolation=linear,scale=${W}:${H}:flags=bicubic,setsar=1[v0]`);
+  } else if (o.cameraH && o.cameraH.length) {
+    // horizontal com câmera (zoom em partes da tela): mesma conta do vertical, com caixa 16:9
+    const e = Camera.expressoesPerspective(o.cameraH, o.fonte.largura, o.fonte.altura, fps, W / H);
+    const q = s => `'${s}'`;
+    f.push(`${vFonte}fps=${fps},perspective=x0=${q(e.x0)}:y0=${q(e.y0)}:x1=${q(e.x1)}:y1=${q(e.y1)}:x2=${q(e.x2)}:y2=${q(e.y2)}:x3=${q(e.x3)}:y3=${q(e.y3)}:sense=source:eval=frame:interpolation=linear,scale=${W}:${H}:flags=bicubic,setsar=1[v0]`);
   } else {
-    f.push(`${vEntrada}fps=${fps},scale=${W}:${H}:force_original_aspect_ratio=decrease:flags=bicubic,pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2,setsar=1[v0]`);
+    f.push(`${vFonte}fps=${fps},scale=${W}:${H}:force_original_aspect_ratio=decrease:flags=bicubic,pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2,setsar=1[v0]`);
   }
 
   let atual = '[v0]';
