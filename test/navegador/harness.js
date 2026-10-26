@@ -35,8 +35,7 @@ const TIPOS = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; ch
       versaoAtual: require('../../package.json').version, pastaDados: dados, pastaApp: dados,
       fetch: async url => ({
         ok: true, status: 200,
-        json: async () => [{ name: 'v9.9.9' }],
-        text: async () => '## 9.9.9\n- tudo novo',
+        text: async () => (url.endsWith('package.json') ? JSON.stringify({ name: 'gravador-rpg', version: '9.9.9' }) : '## 9.9.9\n- tudo novo'),
         headers: { get: () => null },
       }),
     }),

@@ -1,7 +1,8 @@
 'use strict';
-// Atualização automática pelo GitHub (repositório público Yamavaki/gravador-rpg).
-// Cada versão publicada é uma "tag" (v0.5.1, v0.6.0...). O app compara com a própria versão,
-// baixa o código daquela tag (zip que o GitHub gera sozinho), confere e, ao aplicar, um
+// Atualização automática pelo GitHub (repositório público Yamavaki/Gravador-RPG).
+// As versões publicadas ficam no ramo "estavel" (o "main" pode ter coisa em andamento).
+// O app lê o package.json desse ramo, compara com a própria versão, baixa o código do ramo
+// (zip que o GitHub gera sozinho), confere e, ao aplicar, um
 // pequeno .cmd espera o app fechar, copia os arquivos por cima (sem tocar em node_modules
 // nem nas configurações, que ficam em %APPDATA%) e abre o app de novo pelo ABRIR.bat.
 
@@ -13,6 +14,7 @@ const { baixarArquivo } = require('../core/transcricao');
 
 const DONO = 'Yamavaki';
 const REPO = 'Gravador-RPG';
+const RAMO = 'estavel';
 const TAG = /^v?(\d{1,4})\.(\d{1,4})\.(\d{1,4})$/;
 
 function partes(v) {
@@ -67,11 +69,11 @@ class Atualizador extends EventEmitter {
   publico() { return { ...this.estado, pagina: `https://github.com/${DONO}/${REPO}` }; }
   _mudar(c) { Object.assign(this.estado, c); this.emit('mudou', this.publico()); }
 
-  async _json(url) {
-    const r = await this.fetch(url, { headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'gravador-rpg' } });
+  async _texto(url) {
+    const r = await this.fetch(url, { headers: { 'User-Agent': 'gravador-rpg', 'Cache-Control': 'no-cache' } });
     if (r.status === 404) return null;
     if (!r.ok) throw new Error(`GitHub respondeu ${r.status}`);
-    return r.json();
+    return r.text();
   }
 
   /** Procura versão nova. Não lança erro (guarda em estado.erro). */
@@ -79,17 +81,16 @@ class Atualizador extends EventEmitter {
     if (this.estado.verificando) return this.publico();
     this._mudar({ verificando: true, erro: '' });
     try {
-      const tags = await this._json(`https://api.github.com/repos/${DONO}/${REPO}/tags?per_page=100`);
-      const tag = maiorTag(tags || []);
+      const bruto = `https://raw.githubusercontent.com/${DONO}/${REPO}/${RAMO}/`;
+      const pkgTxt = await this._texto(bruto + 'package.json');
+      let versao = null;
+      try { versao = pkgTxt ? JSON.parse(pkgTxt).version : null; } catch { /* */ }
+      const nova = versao && partes(versao) && comparar(versao, this.o.versaoAtual) > 0 ? versao : null;
       let notas = '';
-      const nova = tag && comparar(tag, this.o.versaoAtual) > 0 ? tag : null;
       if (nova) {
-        try {
-          const r = await this.fetch(`https://raw.githubusercontent.com/${DONO}/${REPO}/${encodeURIComponent(nova)}/NOVIDADES.md`, { headers: { 'User-Agent': 'gravador-rpg' } });
-          if (r.ok) notas = novidadesDesde(await r.text(), this.o.versaoAtual);
-        } catch { /* sem novidades: tudo bem */ }
+        try { notas = novidadesDesde(await this._texto(bruto + 'NOVIDADES.md'), this.o.versaoAtual); } catch { /* sem novidades: tudo bem */ }
       }
-      this._mudar({ verificando: false, disponivel: nova ? nova.replace(/^v/, '') : null, tag: nova, notas, verificadoEm: Date.now() });
+      this._mudar({ verificando: false, disponivel: nova, notas, verificadoEm: Date.now() });
     } catch (e) {
       this._mudar({ verificando: false, erro: 'Não consegui procurar atualizações (' + e.message + ').', verificadoEm: Date.now() });
     }
@@ -110,8 +111,8 @@ class Atualizador extends EventEmitter {
 
   /** Baixa e confere a versão nova. Devolve a pasta com os arquivos novos. */
   async preparar() {
-    if (!this.estado.tag) await this.verificar();
-    const tag = this.estado.tag;
+    if (!this.estado.disponivel) await this.verificar();
+    const tag = this.estado.disponivel;
     if (!tag) throw new Error('Não há versão nova para instalar.');
     if (this._preparada && this._preparada.tag === tag && fs.existsSync(this._preparada.pasta)) return this._preparada.pasta;
     const base = path.join(this.o.pastaDados, 'atualizacao');
@@ -120,17 +121,18 @@ class Atualizador extends EventEmitter {
     const zip = path.join(base, `${REPO}-${tag}.zip`);
     this._mudar({ baixando: true, progresso: 0, erro: '' });
     try {
-      await baixarArquivo(`https://codeload.github.com/${DONO}/${REPO}/zip/refs/tags/${encodeURIComponent(tag)}`, zip,
+      await baixarArquivo(`https://codeload.github.com/${DONO}/${REPO}/zip/refs/heads/${RAMO}`, zip,
         f => this._mudar({ progresso: f }), this.fetch);
       const destino = path.join(base, 'arquivos');
       await this._extrair(zip, destino);
-      // o zip do GitHub tem uma pasta só por dentro ("gravador-rpg-0.5.1")
+      // o zip do GitHub tem uma pasta só por dentro ("Gravador-RPG-estavel")
       const dentro = fs.readdirSync(destino).map(n => path.join(destino, n)).filter(p => fs.statSync(p).isDirectory());
       const raiz = dentro.length === 1 ? dentro[0] : destino;
       let pkg;
       try { pkg = JSON.parse(fs.readFileSync(path.join(raiz, 'package.json'), 'utf8')); } catch { throw new Error('o arquivo baixado não é do Gravador RPG'); }
       if (pkg.name !== 'gravador-rpg') throw new Error('o arquivo baixado não é do Gravador RPG');
-      if (comparar(pkg.version, tag) !== 0) throw new Error('o arquivo baixado não é a versão esperada');
+      // (se publicaram outra versão no meio do caminho, qualquer uma mais nova que a atual serve)
+      if (comparar(pkg.version, this.o.versaoAtual) <= 0) throw new Error('o arquivo baixado não é uma versão mais nova');
       for (const f of ['src/main/main.js', 'ABRIR.bat']) if (!fs.existsSync(path.join(raiz, f))) throw new Error('o arquivo baixado está incompleto');
       try { fs.unlinkSync(zip); } catch { /* */ }
       this._preparada = { tag, pasta: raiz };
@@ -186,4 +188,4 @@ class Atualizador extends EventEmitter {
   }
 }
 
-module.exports = { Atualizador, comparar, maiorTag, novidadesDesde, DONO, REPO };
+module.exports = { Atualizador, comparar, maiorTag, novidadesDesde, DONO, REPO, RAMO };

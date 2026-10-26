@@ -31,7 +31,7 @@ test('atualização: avisa quando há versão nova e mostra as novidades', async
     versaoAtual: '0.5.0', pastaDados: fs.mkdtempSync(path.join(os.tmpdir(), 'grpg-at-')), pastaApp: '/app',
     fetch: async url => {
       pedidos.push(url);
-      if (url.includes('/tags')) return resposta(200, [{ name: 'v0.5.0' }, { name: 'v0.5.1' }]);
+      if (url.endsWith('/package.json')) return resposta(200, JSON.stringify({ name: 'gravador-rpg', version: '0.5.1' }));
       if (url.endsWith('NOVIDADES.md')) return resposta(200, '## 0.5.1\n- atualiza sozinho\n## 0.5.0\n- velho');
       return resposta(404, null);
     },
@@ -39,8 +39,8 @@ test('atualização: avisa quando há versão nova e mostra as novidades', async
   const r = await at.verificar();
   assert.equal(r.disponivel, '0.5.1');
   assert.equal(r.notas, '## 0.5.1\n- atualiza sozinho');
-  assert.match(pedidos[0], /api\.github\.com\/repos\/Yamavaki\/Gravador-RPG\/tags/);
-  const semNada = new A.Atualizador({ versaoAtual: '0.5.1', pastaDados: os.tmpdir(), pastaApp: '/app', fetch: async () => resposta(200, [{ name: 'v0.5.1' }]) });
+  assert.equal(pedidos[0], 'https://raw.githubusercontent.com/Yamavaki/Gravador-RPG/estavel/package.json');
+  const semNada = new A.Atualizador({ versaoAtual: '0.5.1', pastaDados: os.tmpdir(), pastaApp: '/app', fetch: async () => resposta(200, JSON.stringify({ version: '0.5.1' })) });
   assert.equal((await semNada.verificar()).disponivel, null);
   const offline = new A.Atualizador({ versaoAtual: '0.5.0', pastaDados: os.tmpdir(), pastaApp: '/app', fetch: async () => { throw new Error('sem internet'); } });
   const e = await offline.verificar();
@@ -53,13 +53,13 @@ function atualizadorCom(versaoZip, nome = 'gravador-rpg') {
   return new A.Atualizador({
     versaoAtual: '0.5.0', pastaDados: dados, pastaApp: 'C:\\Jogos\\gravador-rpg', plataforma: 'win32',
     fetch: async url => {
-      if (url.includes('codeload.github.com')) return resposta(200, 'ZIP');
-      if (url.includes('api.github.com') && url.includes('/tags')) return resposta(200, [{ name: 'v0.5.1' }]);
+      if (url === 'https://codeload.github.com/Yamavaki/Gravador-RPG/zip/refs/heads/estavel') return resposta(200, 'ZIP');
+      if (url.endsWith('/package.json')) return resposta(200, JSON.stringify({ version: '0.5.1' }));
       return resposta(404, null);
     },
     extrair: async (zip, destino) => {
       assert.equal(fs.readFileSync(zip, 'utf8'), 'ZIP');
-      const raiz = path.join(destino, 'gravador-rpg-0.5.1');
+      const raiz = path.join(destino, 'Gravador-RPG-estavel');
       fs.mkdirSync(path.join(raiz, 'src', 'main'), { recursive: true });
       fs.writeFileSync(path.join(raiz, 'package.json'), JSON.stringify({ name: nome, version: versaoZip }));
       fs.writeFileSync(path.join(raiz, 'src', 'main', 'main.js'), '');
@@ -71,16 +71,16 @@ function atualizadorCom(versaoZip, nome = 'gravador-rpg') {
 test('atualização: baixa a versão da tag, confere e monta o script que aplica', async () => {
   const at = atualizadorCom('0.5.1');
   const pasta = await at.preparar();
-  assert.equal(path.basename(pasta), 'gravador-rpg-0.5.1');
+  assert.equal(path.basename(pasta), 'Gravador-RPG-estavel');
   assert.equal(at.publico().pronta, true);
   const cmd = fs.readFileSync(at.scriptAplicar(pasta, 4321), 'utf8');
   assert.match(cmd, /PID eq 4321/);
-  assert.match(cmd, /robocopy ".*gravador-rpg-0\.5\.1" "C:\\Jogos\\gravador-rpg" \/E \/XD node_modules dist \.git/);
+  assert.match(cmd, /robocopy ".*Gravador-RPG-estavel" "C:\\Jogos\\gravador-rpg" \/E \/XD node_modules dist \.git/);
   assert.match(cmd, /call ABRIR\.bat/);
   assert.ok(cmd.includes('\r\n'), 'linhas do Windows');
 });
 
 test('atualização: recusa arquivo de outra versão ou de outro programa', async () => {
-  await assert.rejects(atualizadorCom('0.4.0').preparar(), /não é a versão esperada/);
+  await assert.rejects(atualizadorCom('0.4.0').preparar(), /não é uma versão mais nova/);
   await assert.rejects(atualizadorCom('0.5.1', 'outra-coisa').preparar(), /não é do Gravador RPG/);
 });
