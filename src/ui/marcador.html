@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'">
+<title>Nome do marcador</title>
+<link rel="stylesheet" href="app.css">
+<style>
+  body { background: #1A1D24; border: 1px solid #3A404C; height: 100vh; overflow: hidden; }
+  form { padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; -webkit-app-region: drag; }
+  input, button { -webkit-app-region: no-drag; }
+  .topo { display: flex; justify-content: space-between; align-items: baseline; }
+  .tempo { font-family: "Cascadia Mono", Consolas, monospace; color: #F0B44C; }
+</style>
+</head>
+<body>
+<form id="f">
+  <div class="topo"><strong>Nome do momento</strong><span class="tempo" id="tempo"></span></div>
+  <input type="text" id="nome" maxlength="120" placeholder="Ex.: Crítico do Kael" aria-label="Nome do momento" autofocus>
+  <div class="ajuda"><kbd>Enter</kbd> salva · <kbd>Esc</kbd> deixa sem nome</div>
+</form>
+<script src="marcador.js"></script>
+</body>
+</html>

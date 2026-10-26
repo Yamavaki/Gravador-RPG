@@ -1,0 +1,98 @@
+/* Overlay transparente para a Fonte de navegador do OBS (1920×1080 recomendado). */
+html, body { margin: 0; height: 100%; background: transparent; overflow: hidden; }
+body { font-family: "Segoe UI", system-ui, -apple-system, sans-serif; }
+
+.palco {
+  --tam: 110px;
+  --espaco: 0.18;
+  position: fixed;
+  display: flex;
+  align-items: center;
+  gap: calc(var(--tam) * var(--espaco));
+  pointer-events: none;
+}
+.palco.oculto { display: none; }
+.palco.horizontal { flex-direction: row; align-items: flex-start; }
+.palco.vertical { flex-direction: column; }
+.palco.horizontal.invertida { flex-direction: row-reverse; }
+.palco.vertical.invertida { flex-direction: column-reverse; }
+
+.pessoa {
+  --cor: #F0B44C;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: calc(var(--tam) * 1.35);
+  transition: opacity .25s ease, filter .25s ease, transform .2s ease;
+}
+.retrato {
+  position: relative;
+  width: var(--tam);
+  height: var(--tam);
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--cor);
+  box-sizing: border-box;
+  transition: box-shadow .2s ease, transform .2s ease;
+}
+.forma-arredondado .retrato { border-radius: 18%; }
+.forma-quadrado .retrato { border-radius: 4px; }
+.com-moldura .retrato { border: calc(var(--tam) * 0.04) solid rgba(255,255,255,.85); }
+
+.retrato img {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  object-fit: cover;
+}
+.retrato .iniciais {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-weight: 700;
+  font-size: calc(var(--tam) * 0.38);
+  text-shadow: 0 2px 6px rgba(0,0,0,.45);
+}
+.nome {
+  max-width: 100%;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(10, 11, 14, .78);
+  color: #fff;
+  font-size: calc(12px + var(--tam) * 0.07);
+  font-weight: 600;
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-shadow: 0 1px 2px rgba(0,0,0,.6);
+}
+.nome:empty { display: none; }
+.nome.duas-linhas {
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow-wrap: anywhere;
+  text-align: center;
+  border-radius: 10px;
+  line-height: 1.15;
+}
+/* em pé (vertical) sobra espaço dos lados: o nome pode ser mais largo que o retrato */
+.vertical .nome { max-width: calc(var(--tam) * 1.7); }
+
+/* quem não está falando fica mais apagado */
+.apagar .pessoa:not(.falando) { opacity: .5; filter: saturate(.6); }
+.pessoa.ausente { opacity: .22 !important; }
+
+/* efeitos de quem está falando */
+.efeito-brilho .falando .retrato { box-shadow: 0 0 0 calc(var(--tam) * 0.05) var(--cor), 0 0 calc(var(--tam) * 0.35) var(--cor); }
+.efeito-aumentar .falando .retrato { transform: scale(1.12); box-shadow: 0 0 0 calc(var(--tam) * 0.04) var(--cor); }
+.efeito-pular .falando .retrato { animation: pular .5s ease-in-out infinite alternate; box-shadow: 0 0 0 calc(var(--tam) * 0.04) var(--cor); }
+@keyframes pular { from { transform: translateY(0); } to { transform: translateY(calc(var(--tam) * -0.08)); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .efeito-pular .falando .retrato { animation: none; }
+}
+
+/* identidade visual ao vivo (logo, textos) */
+.camadas { position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; }

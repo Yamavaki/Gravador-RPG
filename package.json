@@ -1,0 +1,27 @@
+{
+  "name": "gravador-rpg",
+  "productName": "Gravador RPG",
+  "version": "0.5.1",
+  "description": "Companheiro do OBS para gravar sessões de RPG: marcadores, retratos de quem fala (StreamKit do Discord), limpeza automática, cortes para YouTube, WhatsApp e vertical, e bot de música no Discord.",
+  "main": "src/main/main.js",
+  "author": "Gustavo Yamavaki",
+  "license": "UNLICENSED",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test test/*.test.js",
+    "empacotar": "npx --yes @electron/packager . \"Gravador RPG\" --platform=win32 --arch=x64 --out=dist --overwrite --ignore=^/test --ignore=^/dist --ignore=^/modulo-foundry"
+  },
+  "devDependencies": {
+    "electron": "^38.0.0"
+  },
+  "dependencies": {
+    "ffmpeg-static": "^5.2.0"
+  },
+  "optionalDependencies": {
+    "discord.js": "^14.21.0",
+    "@discordjs/voice": "^0.19.0",
+    "opusscript": "^0.0.8",
+    "@noble/ciphers": "^1.3.0"
+  }
+}

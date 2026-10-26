@@ -1,0 +1,13 @@
+{
+  "id": "gravador-rpg-marcadores",
+  "title": "Gravador RPG — Marcadores",
+  "description": "Manda marcadores para o app Gravador RPG (no PC do mestre) quando um combate começa ou termina, quando sai um crítico ou uma falha crítica no d20 e quando a cena muda. Funciona com qualquer sistema.",
+  "version": "1.0.0",
+  "authors": [{ "name": "Gustavo Yamavaki" }],
+  "compatibility": { "minimum": "12", "verified": "14" },
+  "esmodules": ["scripts/main.mjs"],
+  "languages": [],
+  "url": "",
+  "manifest": "",
+  "download": ""
+}

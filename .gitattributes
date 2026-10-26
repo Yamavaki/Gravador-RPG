@@ -1,0 +1,3 @@
+# os .bat precisam de quebra de linha do Windows (CRLF) exatamente como estão no repositório
+*.bat -text
+*.cmd -text

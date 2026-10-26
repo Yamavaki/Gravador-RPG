@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' http://127.0.0.1:* https: data:; frame-src http://127.0.0.1:*; connect-src 'self' http://127.0.0.1:*; media-src http://127.0.0.1:* blob:; style-src 'self' 'unsafe-inline'; script-src 'self'">
+<title>Gravador RPG</title>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<div class="app">
+  <nav class="menu" aria-label="Telas">
+    <div class="marca">
+      <span class="marca-icone" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><circle cx="12" cy="12" r="6"/></svg></span>
+      <span>Gravador RPG</span>
+    </div>
+    <a href="#sessao" data-tela="sessao">Sessão ao vivo</a>
+    <a href="#momentos" data-tela="momentos">Momentos e cortes</a>
+    <a href="#musica" data-tela="musica">Música</a>
+    <a href="#navegador" data-tela="navegador" class="sub">Navegador</a>
+    <a href="#mesa" data-tela="mesa">Mesa e jogadores</a>
+    <a href="#overlay" data-tela="overlay">Overlay</a>
+    <a href="#identidade" data-tela="identidade" class="sub">Identidade visual</a>
+    <a href="#conexoes" data-tela="conexoes">Conexões</a>
+    <a href="#gravacao" data-tela="gravacao">Gravação e atalhos</a>
+    <a href="#ajuda" data-tela="ajuda">Primeiros passos</a>
+    <div class="menu-rodape">
+      <label class="rotulo" for="seletor-mesa">Mesa ativa</label>
+      <select id="seletor-mesa"></select>
+      <div id="menu-canal" class="coluna" style="gap:4px"></div>
+      <div id="vivo-menu" class="menu-status"></div>
+      <div id="vivo-atualizacao" class="vivo-atualizacao"></div>
+    </div>
+  </nav>
+  <main id="tela" class="tela" tabindex="-1"></main>
+</div>
+<div id="avisos" class="avisos" role="status" aria-live="polite"></div>
+<script src="api-web.js"></script>
+<script src="../core/camera.js"></script>
+<script src="../core/layout-retratos.js"></script>
+<script src="../core/pausas.js"></script>
+<script src="../core/legendas.js"></script>
+<script src="../core/identidade.js"></script>
+<script src="../core/musica/trilha-util.js"></script>
+<script src="../core/musica/analise.js"></script>
+<script src="retratos.js"></script>
+<script src="app.js"></script>
+<script src="cortes.js"></script>
+<script src="legendas-editor.js"></script>
+<script src="identidade-ui.js"></script>
+<script src="musica.js"></script>
+<script src="navegador.js"></script>
+</body>
+</html>
