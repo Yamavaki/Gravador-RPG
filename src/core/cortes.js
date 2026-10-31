@@ -14,7 +14,26 @@ const PRESETS = {
   vertical: { id: 'vertical', nome: 'TikTok / Reels / Shorts', tipo: 'vertical', largura: 1080, altura: 1920, qualidade: 20, audioKbps: 160, fpsMax: 60 },
   'whatsapp-vertical': { id: 'whatsapp-vertical', nome: 'WhatsApp vertical', tipo: 'vertical', largura: 720, altura: 1280, alvoMB: 16, audioKbps: 96, fpsMax: 30 },
   rapido: { id: 'rapido', nome: 'Corte rápido (original)', tipo: 'copia' },
+  // GIF (sem som): monta o quadro como o horizontal/vertical e no fim reduz e gera a paleta
+  gif: { id: 'gif', nome: 'GIF', tipo: 'horizontal', gif: true, largura: 1280, altura: 720, fpsMax: 30, ext: '.gif' },
+  'gif-vertical': { id: 'gif-vertical', nome: 'GIF vertical', tipo: 'vertical', gif: true, largura: 720, altura: 1280, fpsMax: 30, ext: '.gif' },
 };
+
+// opções do GIF (o usuário escolhe; o app pode reduzir para caber no limite)
+const GIF_PADRAO = { largura: 480, fps: 12, cores: 128, dither: 'bayer', repetir: true, limiteMB: 10, ajustar: true };
+function normalizarGif(g) {
+  g = g && typeof g === 'object' ? g : {};
+  const n = (v, a, b, p) => (Number.isFinite(Number(v)) ? Math.max(a, Math.min(b, Number(v))) : p);
+  return {
+    largura: Math.round(n(g.largura, 120, 1280, GIF_PADRAO.largura) / 2) * 2,
+    fps: Math.round(n(g.fps, 4, 30, GIF_PADRAO.fps)),
+    cores: Math.round(n(g.cores, 16, 256, GIF_PADRAO.cores)),
+    dither: ['bayer', 'floyd', 'nenhum'].includes(g.dither) ? g.dither : GIF_PADRAO.dither,
+    repetir: typeof g.repetir === 'boolean' ? g.repetir : GIF_PADRAO.repetir,
+    limiteMB: Math.round(n(g.limiteMB, 1, 500, GIF_PADRAO.limiteMB) * 10) / 10,
+    ajustar: typeof g.ajustar === 'boolean' ? g.ajustar : GIF_PADRAO.ajustar,
+  };
+}
 
 // ---------------------------------------------------------------- tempo e pedaços
 
@@ -131,7 +150,8 @@ function montarComando(o) {
   }
 
   const fps = o.fpsFixo || Math.min(p.fpsMax || 60, Math.round(o.fonte.fps || 30)) || 30;
-  const K = Math.max(0, o.fonte.audios | 0);
+  // GIF não tem som: nenhuma faixa entra no filtro
+  const K = p.gif ? 0 : Math.max(0, o.fonte.audios | 0);
   let proxEntrada = o.pedacos.length + imagens.length;
   // imagem final: entra com fade por cima do fim do corte e fica na tela; o vídeo é esticado no fim
   const fin = o.final && o.final.arquivo ? o.final : null;
@@ -159,7 +179,7 @@ function montarComando(o) {
   let entFinal = -1;
   if (fin) { entFinal = proxEntrada++; args.push('-loop', '1', '-framerate', String(fps), '-t', n3(total), '-i', fin.arquivo); }
   let entMusica = -1;
-  const mus = o.musica && o.musica.arquivo ? o.musica : null;
+  const mus = !p.gif && o.musica && o.musica.arquivo ? o.musica : null;
   if (mus) {
     entMusica = proxEntrada++;
     args.push('-stream_loop', '-1', '-ss', n3(Math.max(0, Number(mus.inicio) || 0)), '-t', n3(total), '-i', mus.arquivo);
@@ -259,7 +279,14 @@ function montarComando(o) {
     }
     atual = '[vfim]';
   }
-  f.push(`${atual}format=yuv420p[vout]`);
+  if (p.gif) {
+    // GIF: diminui, escolhe a melhor paleta para o trecho e aplica (com ou sem pontilhado)
+    const g = normalizarGif(o.gif);
+    const d = g.dither === 'nenhum' ? 'none' : g.dither === 'floyd' ? 'floyd_steinberg' : 'bayer:bayer_scale=3';
+    f.push(`${atual}fps=${g.fps},scale=${g.largura}:-2:flags=lanczos,split[g1][g2]`);
+    f.push(`[g1]palettegen=max_colors=${g.cores}:stats_mode=diff[pal]`);
+    f.push(`[g2][pal]paletteuse=dither=${d}:diff_mode=rectangle[vout]`);
+  } else f.push(`${atual}format=yuv420p[vout]`);
 
   // áudio
   let temAudio = K > 0;
@@ -286,7 +313,7 @@ function montarComando(o) {
 
   // sem som (todas as faixas no zero ou vídeo mudo): põe silêncio, para todo arquivo ter áudio
   // (redes sociais e o compilado esperam sempre uma faixa)
-  if (!temAudio && (o.sempreAudio || mus)) {
+  if (!temAudio && !p.gif && (o.sempreAudio || mus)) {
     const ent = proxEntrada++;
     args.push('-f', 'lavfi', '-t', n3(duracao), '-i', 'anullsrc=r=48000:cl=stereo');
     f.push(`[${ent}:a]anull[abase]`);
@@ -318,6 +345,14 @@ function montarComando(o) {
   args.push('-filter_complex_script_marcador');
   args.push('-map', '[vout]');
   if (temAudio) args.push('-map', '[aout]');
+
+  if (p.gif) {
+    const g = normalizarGif(o.gif);
+    args.push('-loop', g.repetir ? '0' : '-1', '-t', n3(total), o.saida);
+    const ig = args.indexOf('-filter_complex_script_marcador');
+    args.splice(ig, 1, o.opcaoFiltroArquivo || ((o.ffmpegVersaoMaior || 6) >= 7 ? '-/filter_complex' : '-filter_complex_script'), o.arquivoFiltros);
+    return { args, filtros: f.join(';\n'), lista: null, duracao: total, avisos };
+  }
 
   // codificação
   const nv = o.encoder && o.encoder.nvenc;
@@ -357,14 +392,14 @@ function nomeArquivo(...partes) {
 }
 
 /** Primeiro nome livre na pasta: "nome.mp4", "nome (2).mp4"... */
-function caminhoLivre(pasta, base, existe) {
-  let c = path.join(pasta, base + '.mp4');
+function caminhoLivre(pasta, base, existe, ext = '.mp4') {
+  let c = path.join(pasta, base + ext);
   let i = 2;
-  while (existe(c)) c = path.join(pasta, `${base} (${i++}).mp4`);
+  while (existe(c)) c = path.join(pasta, `${base} (${i++})${ext}`);
   return c;
 }
 
 module.exports = {
   PRESETS, linhaDosArquivos, pedacosDoTrecho, intervalosFala, exprIntervalos, bitrateParaTamanho,
-  montarComando, nomeArquivo, caminhoLivre,
+  montarComando, nomeArquivo, caminhoLivre, GIF_PADRAO, normalizarGif,
 };

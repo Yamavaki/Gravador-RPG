@@ -25,7 +25,7 @@ const PAPEIS = ['mestre', 'jogador'];
 const DESTINOS = ['lixeira', 'apagar'];
 const RETRATOS_CORTES = ['como-overlay', 'nenhum'];
 const LAYOUTS_VERTICAL = ['faixa-baixo', 'faixa-cima', 'quem-fala', 'nenhum'];
-const PRESETS_IDS = ['youtube-2k', 'youtube-1080', 'whatsapp', 'vertical', 'whatsapp-vertical', 'rapido'];
+const PRESETS_IDS = ['youtube-2k', 'youtube-1080', 'whatsapp', 'vertical', 'whatsapp-vertical', 'rapido', 'gif', 'gif-vertical'];
 
 function novoId() {
   return crypto.randomBytes(6).toString('hex');
@@ -101,6 +101,7 @@ function padraoConfig() {
       pasta: '', antes: 30, depois: 15, ffmpeg: '',
       nomesFaixas: ['Tudo junto', 'Microfone', 'Discord', 'Foundry'],
       presets: ['youtube-1080'],
+      gif: { ...require('./cortes').GIF_PADRAO },
     },
     foundry: { chave: crypto.randomBytes(8).toString('hex'), ativo: true },
     app: { fecharParaBandeja: true, procurarAtualizacoes: true },
@@ -308,6 +309,7 @@ function normalizar(c) {
         ffmpeg: texto(k.ffmpeg, '', 500).trim(),
         nomesFaixas: p.cortes.nomesFaixas.map((padrao, i) => texto(nf[i], padrao, 30).trim() || padrao),
         presets: Array.isArray(k.presets) ? [...new Set(k.presets.filter(x => PRESETS_IDS.includes(x)))] : p.cortes.presets,
+        gif: require('./cortes').normalizarGif(k.gif),
       };
     })(),
     foundry: {

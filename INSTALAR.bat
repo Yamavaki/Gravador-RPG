@@ -25,7 +25,7 @@ if errorlevel 1 (
 )
 rem marca a versao instalada (o ABRIR.bat reinstala sozinho depois de uma atualizacao)
 del /q "node_modules\.instalado-*" >nul 2>nul
-echo ok> "node_modules\.instalado-0.6.0"
+echo ok> "node_modules\.instalado-0.6.1"
 if not exist "node_modules\@discordjs\voice\package.json" (
   echo.
   echo  Aviso: as bibliotecas do bot de musica nao instalaram.

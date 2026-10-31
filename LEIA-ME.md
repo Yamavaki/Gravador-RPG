@@ -1,4 +1,4 @@
-# Gravador RPG 0.6.0
+# Gravador RPG 0.6.1
 
 Companheiro do OBS para gravar sessões de RPG no Windows:
 
@@ -157,7 +157,7 @@ Em **Momentos e cortes** aparece cada gravação, com os marcadores.
 1. Clique em **Criar corte** num marcador. O corte começa 30 s antes e vai até 15 s depois (dá para mudar em Gravação e atalhos).
 2. No editor: arraste as alças amarelas, digite os tempos, ou use o vídeo: <kbd>Espaço</kbd> toca, <kbd>I</kbd> marca o início, <kbd>O</kbd> o fim, setas andam 0,1 s (com Shift, 1 s). As faixas coloridas embaixo mostram quem falou.
 3. **Áudio**: "Áudio pronto" usa a faixa 1 do OBS. "Misturar" deixa você baixar a música, o Discord ou o microfone separadamente.
-4. Marque os formatos e clique em **Exportar**. A fila mostra o progresso; quando terminar, **Mostrar na pasta**.
+4. Marque os formatos e clique em **Exportar**. Para mandar no Discord como imagem animada, marque **GIF** (ou, no editor vertical, **GIF vertical**) e veja **Opções do GIF**: largura, quadros por segundo, cores, pontilhado e o tamanho máximo (10 MB no Discord grátis, 50 MB no Nitro Basic, 500 MB no Nitro). Com **Diminuir sozinho para caber**, se o GIF passar do limite o app refaz menor e avisa como ficou. GIF não tem som e fica pesado rápido: trechos de até uns 10 s ficam bons. A fila mostra o progresso; quando terminar, **Mostrar na pasta**.
 
 Os vídeos vão para `Vídeos\Gravador RPG` (dá para trocar). Com a sua RTX, a exportação usa a placa (NVENC) e é rápida.
 

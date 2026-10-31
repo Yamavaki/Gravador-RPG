@@ -442,6 +442,7 @@ class Biblioteca {
         final: corte.final !== false && pedido.final ? pedido.final[preset] || null : null,
         musica: this._musica(corte),
         anotacoes: (pedido.anotacoes && pedido.anotacoes[preset]) || [],
+        gif: this.o.cfg().cortes.gif,
         pastaSaida: this.pastaSaida(),
         nomeBase: this._nomeBase(s, corte),
       });

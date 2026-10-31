@@ -1,5 +1,8 @@
 # Novidades do Gravador RPG
 
+## 0.6.1
+- **Exportar em GIF** (horizontal e vertical, sem som), com largura, quadros por segundo, cores e pontilhado ajustáveis, e limite de tamanho (10 MB do Discord grátis, 50 MB Nitro Basic, 500 MB Nitro). Se passar do limite, o app diminui sozinho até caber.
+
 ## 0.6.0
 - **Câmera nos cortes horizontais**: zoom em partes da tela com pontos no tempo (desliza e para em X s, desliza o tempo todo ou corte seco) e "Tela inteira aqui" para voltar à câmera original.
 - **Anotações para tutoriais**: seta, linha, retângulo, círculo, marca-texto, destaque (escurece o resto) e texto, desenhadas com o mouse, com início, fim e entrada com fade ou corte seco. Valem no horizontal e no vertical e acompanham o zoom.

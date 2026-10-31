@@ -377,3 +377,47 @@ test('tutorial: zoom da câmera no horizontal, volta para a tela toda e anotaç�
   assert.ok(azul(pixel(4, 1574, 824)), `anotação no lugar ${pixel(4, 1574, 824)}`);
   assert.ok(!azul(pixel(3.2, 1574, 824)), 'anotação só aparece no tempo dela');
 });
+
+// ---------------------------------------------------------------- 0.6.1: GIF
+test('GIF: sem som, com paleta, e diminui sozinho para caber no limite', async t => {
+  if (!sessao) return t.skip('sem FFmpeg');
+  const v = path.join(tmp, 'gif-fonte.mp4');
+  execFileSync(ff.bin, ['-loglevel', 'error', '-y', '-f', 'lavfi', '-i', 'testsrc2=size=1280x720:rate=30', '-f', 'lavfi', '-i', 'sine=f=440:sample_rate=48000',
+    '-t', '4', '-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p', '-c:a', 'aac', v]);
+  const t0 = 1_700_000_200_000;
+  const s = new Sessao(path.join(tmp, 'sessoes-gif'), { inicio: t0, mesa: { id: 'm', nome: 'Nauren' } });
+  s.arquivoGravacao(v, t0);
+  s.encerrar(t0 + 4000);
+  const exportar = async (gif, preset = 'gif') => {
+    const fila = new Fila();
+    const prep = await exp.preparar({
+      sessaoArquivo: s.arquivo, corte: { nome: 'Gif', ini: 0, fim: 3000, fonte: 'gravacao', audio: { modo: 'faixa1' }, vertical: { modo: 'inteira', camera: [] } },
+      preset, pastaSaida: path.join(tmp, 'saida'), nomeBase: 'gif', gif, layout: { layout: 'nenhum' },
+    });
+    const fim = terminar(fila);
+    fila.adicionar(prep);
+    return fim;
+  };
+  const info = arq => {
+    const r = require('child_process').spawnSync(ff.ffprobe || ff.bin.replace(/ffmpeg(\.exe)?$/, 'ffprobe$1'), ['-v', 'error', '-show_entries', 'stream=codec_name,width,height', '-of', 'json', arq], { encoding: 'utf8' });
+    return JSON.parse(r.stdout).streams;
+  };
+  const a = await exportar({ largura: 400, fps: 10, limiteMB: 10 });
+  assert.equal(a.erro, '', a.erro);
+  assert.match(a.saida, /\.gif$/);
+  assert.equal(fs.readFileSync(a.saida).subarray(0, 6).toString(), 'GIF89a');
+  const sa = info(a.saida);
+  assert.equal(sa.length, 1, 'só imagem, sem som');
+  assert.deepEqual([sa[0].codec_name, sa[0].width, sa[0].height], ['gif', 400, 226]);
+  // grande demais para 1 MB: o app diminui e avisa
+  const b = await exportar({ largura: 1280, fps: 25, cores: 256, limiteMB: 1 });
+  assert.equal(b.erro, '', b.erro);
+  const tam = fs.statSync(b.saida).size;
+  assert.ok(tam <= 1024 * 1024, `coube em 1 MB (${(tam / 1048576).toFixed(2)} MB)`);
+  assert.ok(info(b.saida)[0].width < 1280, 'ficou menor');
+  assert.match((b.avisos || []).join(' '), /Para caber em 1 MB/);
+  // vertical
+  const c = await exportar({ largura: 270, fps: 8 }, 'gif-vertical');
+  assert.equal(c.erro, '', c.erro);
+  assert.deepEqual([info(c.saida)[0].width, info(c.saida)[0].height], [270, 480]);
+});

@@ -175,7 +175,7 @@ class Exportador {
     }
 
     fs.mkdirSync(pedido.pastaSaida, { recursive: true });
-    const saida = C.caminhoLivre(pedido.pastaSaida, C.nomeArquivo(pedido.nomeBase, preset.nome), fs.existsSync);
+    const saida = C.caminhoLivre(pedido.pastaSaida, C.nomeArquivo(pedido.nomeBase, preset.nome), fs.existsSync, preset.ext || '.mp4');
     // reserva o nome já (duas exportações iguais na fila não brigam pelo mesmo arquivo)
     fs.writeFileSync(saida, '');
     const titulo = `${corte.nome || 'Corte'} · ${preset.nome}`;
@@ -189,7 +189,7 @@ class Exportador {
         const finalArq = final ? { duracao: final.duracao, fade: final.fade, arquivo: this._gravarPng(tmp, 'final.png', final.png) } : null;
         const anotArq = anotacoesPed.map((a, i) => ({ x: Number(a.x), y: Number(a.y), a: a.a, b: a.b, fade: a.fade, arquivo: this._gravarPng(tmp, `anotacao${i}.png`, a.png) }));
         if (ass) fs.writeFileSync(path.join(tmp, 'legendas.ass'), ass, 'utf8');
-        const cmd = C.montarComando({
+        const opcoes = {
           preset, pedacos, fonte, audio: corte.audio, vertical,
           retratos: imgs,
           layout: { ...(pedido.layout || {}), quantidade: Math.max(1, imgs.length) },
@@ -199,13 +199,44 @@ class Exportador {
           legendas: ass ? 'legendas.ass' : null,
           camadas: camadasArq, fundo: fundoArq, final: finalArq, musica, cameraH, anotacoes: anotArq,
           pastaFontes: process.platform === 'win32' ? path.join(process.env.WINDIR || 'C:\\Windows', 'Fonts') : null,
-        });
-        if (cmd.filtros) fs.writeFileSync(path.join(tmp, 'filtros.txt'), cmd.filtros);
-        if (cmd.lista) fs.writeFileSync(path.join(tmp, 'lista.txt'), cmd.lista);
-        const job = midia.executar(ff.bin, cmd.args, cmd.duracao, aoProgresso, { cwd: tmp });
-        if (aoCancelar) aoCancelar(job.cancelar);
-        await job.promessa;
-        return { saida, avisos: cmd.avisos };
+          gif: preset.gif ? C.normalizarGif(pedido.gif) : null,
+        };
+        const rodar = async (o, parte, partes) => {
+          const cmd = C.montarComando(o);
+          if (cmd.filtros) fs.writeFileSync(path.join(tmp, 'filtros.txt'), cmd.filtros);
+          if (cmd.lista) fs.writeFileSync(path.join(tmp, 'lista.txt'), cmd.lista);
+          const job = midia.executar(ff.bin, cmd.args, cmd.duracao, aoProgresso, { cwd: tmp });
+          if (aoCancelar) aoCancelar(job.cancelar);
+          await job.promessa;
+          return cmd;
+        };
+        if (!preset.gif) {
+          const cmd = await rodar(opcoes, 0, 1);
+          return { saida, avisos: cmd.avisos };
+        }
+        // GIF: se passou do limite (ex.: 10 MB do Discord), diminui o tamanho e, se precisar, os quadros por segundo
+        const g = { ...opcoes.gif };
+        const limite = g.limiteMB * 1024 * 1024;
+        const avisos = [];
+        const MAX = g.ajustar ? 5 : 1;
+        for (let tentativa = 0; tentativa < MAX; tentativa++) {
+          await rodar({ ...opcoes, gif: g }, tentativa, MAX === 1 ? 1 : Math.max(tentativa + 1, 2));
+          const tam = fs.statSync(saida).size;
+          if (tam <= limite) {
+            if (tentativa > 0) avisos.push(`Para caber em ${g.limiteMB} MB, o GIF saiu com ${g.largura} px de largura e ${g.fps} quadros por segundo.`);
+            return { saida, avisos };
+          }
+          if (tentativa === MAX - 1) break;
+          // tamanho do GIF ≈ proporcional à área × quadros: reduz pela raiz da proporção (com folga)
+          const r = (limite / tam) * 0.9;
+          let largura = Math.round((g.largura * Math.sqrt(r)) / 2) * 2;
+          if (largura < 240 && g.fps > 8) { g.fps = Math.max(8, Math.round(g.fps * Math.max(0.5, r * 1.5))); largura = Math.max(240, largura); }
+          g.largura = Math.max(160, largura);
+          if (g.largura === 160 && g.fps <= 8 && g.cores > 64) g.cores = 64;
+        }
+        const mb = (fs.statSync(saida).size / 1048576).toFixed(1);
+        avisos.push(`O GIF ficou com ${mb} MB, acima do limite de ${g.limiteMB} MB. Encurte o corte ou diminua o tamanho e os quadros por segundo.`);
+        return { saida, avisos };
       } catch (e) {
         try { fs.unlinkSync(saida); } catch { /* */ }
         throw e;
@@ -253,6 +284,7 @@ class Exportador {
     if (!pedidos.length) throw new Error('Escolha pelo menos um corte.');
     const p = C.PRESETS[preset];
     if (!p || p.tipo === 'copia') throw new Error('O compilado precisa de um formato que recodifica (não o corte rápido).');
+    if (p.gif) throw new Error('O compilado não sai em GIF. Escolha um formato de vídeo.');
     const ff = await this.ffmpeg();
     if (!ff.ok) throw new Error(ff.erro);
     const total = pedidos.reduce((s, x) => s + (x.corte.fim - x.corte.ini) / 1000, 0);

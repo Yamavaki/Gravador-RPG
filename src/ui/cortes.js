@@ -32,7 +32,31 @@
     vertical: { nome: 'TikTok / Reels / Shorts', sub: '1080×1920', tipo: 'v', largura: 1080, altura: 1920 },
     'whatsapp-vertical': { nome: 'WhatsApp vertical', sub: '720×1280, até 16 MB', tipo: 'v', largura: 720, altura: 1280 },
     rapido: { nome: 'Corte rápido', sub: 'original, sem recodificar, todas as faixas', tipo: 'c' },
+    gif: { nome: 'GIF', sub: 'sem som, para o Discord (veja as opções abaixo)', tipo: 'h', gif: true, largura: 1280, altura: 720 },
+    'gif-vertical': { nome: 'GIF vertical', sub: 'sem som, enquadrado como o vertical', tipo: 'v', gif: true, largura: 720, altura: 1280 },
   };
+
+  /** Opções do GIF (valem para todos os cortes). */
+  function gifOpcoesHtml() {
+    var g = A.cfg().cortes.gif;
+    var op = function (lista, v) { return lista.map(function (o) { return '<option value="' + o[0] + '"' + (String(o[0]) === String(v) ? ' selected' : '') + '>' + esc(o[1]) + '</option>'; }).join(''); };
+    var limites = [[10, '10 MB (Discord grátis)'], [50, '50 MB (Discord Nitro Basic)'], [500, '500 MB (Discord Nitro)'], [8, '8 MB'], [25, '25 MB']];
+    if (!limites.some(function (l) { return l[0] === g.limiteMB; })) limites.push([g.limiteMB, g.limiteMB + ' MB']);
+    var dur = ed ? (ed.corte.fim - ed.corte.ini) / 1000 : 0;
+    return '<details class="leg-detalhes" id="opcoes-gif"><summary>Opções do GIF</summary><div class="coluna" style="gap:10px;margin-top:10px">' +
+      '<div class="leg-linha">' +
+      '<label class="campo" style="flex:1"><span class="rotulo">Largura</span><select data-campo="c.cortes.gif.largura" data-num>' + op([[320, '320 px (pequeno)'], [400, '400 px'], [480, '480 px'], [640, '640 px'], [800, '800 px (grande)']], g.largura) + '</select></label>' +
+      '<label class="campo" style="flex:1"><span class="rotulo">Quadros por segundo</span><select data-campo="c.cortes.gif.fps" data-num>' + op([[8, '8'], [10, '10'], [12, '12'], [15, '15'], [20, '20'], [25, '25 (bem fluido)']], g.fps) + '</select></label></div>' +
+      '<div class="leg-linha">' +
+      '<label class="campo" style="flex:1"><span class="rotulo">Cores</span><select data-campo="c.cortes.gif.cores" data-num>' + op([[64, '64 (arquivo menor)'], [128, '128'], [256, '256 (mais bonito)']], g.cores) + '</select></label>' +
+      '<label class="campo" style="flex:1"><span class="rotulo">Pontilhado</span><select data-campo="c.cortes.gif.dither">' + op([['bayer', 'Padrão'], ['floyd', 'Suave (arquivo maior)'], ['nenhum', 'Nenhum (menor, com faixas)']], g.dither) + '</select></label></div>' +
+      '<label class="campo"><span class="rotulo">Tamanho máximo</span><select data-campo="c.cortes.gif.limiteMB" data-num>' + op(limites, g.limiteMB) + '</select></label>' +
+      '<label class="opcao"><input type="checkbox" data-campo="c.cortes.gif.ajustar"' + A.marcado(g.ajustar) + '><span>Diminuir sozinho para caber<small>Se passar do limite, o app refaz com largura menor (e, se precisar, menos quadros por segundo)</small></span></label>' +
+      '<label class="opcao"><input type="checkbox" data-campo="c.cortes.gif.repetir"' + A.marcado(g.repetir) + '><span>Repetir sem parar</span></label>' +
+      '<p class="ajuda">GIF não tem som e fica pesado rápido: para o Discord, trechos de até uns 10 s ficam bons.' +
+      (dur > 15 ? ' <strong>Este corte tem ' + Math.round(dur) + ' s</strong>; o GIF vai sair pequeno ou com poucos quadros.' : '') + '</p>' +
+      '</div></details>';
+  }
 
   // ================================================================ fila de exportação
   function filaHtml() {
@@ -291,7 +315,7 @@
     if (!el) return;
     el.hidden = !selecionados.length;
     if (!selecionados.length) return;
-    var opcoes = Object.keys(PRESETS).filter(function (k) { return k !== 'rapido'; });
+    var opcoes = Object.keys(PRESETS).filter(function (k) { return k !== 'rapido' && !PRESETS[k].gif; });
     el.innerHTML = '<div class="titulo"><h2>Compilado (' + selecionados.length + ' corte' + (selecionados.length > 1 ? 's' : '') + ')</h2>' +
       '<button class="pequeno" data-acao="limparCompilado">Desmarcar todos</button></div>' +
       '<ol class="lista-compilado">' + selecionados.map(function (x, i) {
@@ -599,6 +623,7 @@
         return '<label class="opcao"><input type="checkbox" data-preset value="' + k + '"' + A.marcado(escolhidos.indexOf(k) >= 0) + '><span>' + esc(PRESETS[k].nome) + '<small>' + esc(PRESETS[k].sub) + '</small></span></label>';
       }).join('') + '</div>' +
       '<label class="opcao"><input type="checkbox" id="retratos-h"' + A.marcado(c.retratosHorizontal) + '><span>Desenhar retratos nos vídeos horizontais<small>Use se gravou com o overlay desligado</small></span></label>' +
+      gifOpcoesHtml() +
       '<button class="principal" data-acao="exportarCorte">Exportar</button></section>' +
       A.Edicao.painel('h') +
       A.EditorLegendas.painel('h') +
@@ -912,7 +937,8 @@
       '<header class="cabecalho"><div><a href="#corte/' + encodeURIComponent(s.id) + '/' + encodeURIComponent(c.id) + '" class="ajuda">← Editor de corte</a>' +
       '<h1 style="margin-top:6px">Vertical · ' + esc(c.nome) + '</h1><p>' + fmt((c.fim - c.ini) / 1000) + ' · <span id="status-salvo">Salvo</span></p></div>' +
       '<div class="linha"><button class="principal" data-acao="exportarVertical" data-preset="vertical">Exportar TikTok / Reels / Shorts</button>' +
-      '<button data-acao="exportarVertical" data-preset="whatsapp-vertical">WhatsApp vertical</button></div></header>' +
+      '<button data-acao="exportarVertical" data-preset="whatsapp-vertical">WhatsApp vertical</button>' +
+      '<button data-acao="exportarVertical" data-preset="gif-vertical" title="Sem som; opções no painel Exportar do editor de corte">GIF vertical</button></div></header>' +
       '<div class="grade" style="grid-template-columns:minmax(0,1.6fr) minmax(300px,1fr)">' +
       '<section class="painel">' +
       '<div class="linha" role="radiogroup" aria-label="Modo"><label class="opcao"><input type="radio" name="modo-vertical" value="camera"' + A.marcado(c.vertical.modo !== 'inteira') + '>Câmera (enquadrar e dar zoom)</label>' +
@@ -940,6 +966,7 @@
       A.Edicao.painel('v') +
       A.EditorLegendas.painel('v') +
       A.IdentidadeUI.painel() +
+      '<section class="painel"><h2>GIF vertical</h2>' + gifOpcoesHtml() + '</section>' +
       '<section class="painel" id="vivo-fila"></section>' +
       '</div></div>';
 
